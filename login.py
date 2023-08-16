@@ -1,169 +1,69 @@
+# -*- coding: utf-8 -*-
 import customtkinter as ctk
 from tkinter import *
-import sqlite3
 from tkinter import messagebox
+from con_db.ml_db import MLDB
 
 
-# estruturando o banco de dados
-class BackEnd:
-    def conecta_db(self):
-        self.conn = sqlite3.connect('coder.db')
-        self.cursor = self.conn.cursor()
-        print('banco de dados conectado')
-
-    # desconctando o banco de dados
-    def desconecta_db(self):
-        self.conn.close()
-        print('Desconectado banco')
-
-    # criação da tabela
-    def cria_tabela(self):
-        self.conecta_db()
-
-        self.cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS usuarios(
-                Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-                Usermane TEXT NOT NULL,
-                Email TEXT NOT NULL,
-                Password TEXT NOT NULL,
-                ConfiPassoword TEXT NOT NULL
-            );
-        """
-        )
-        self.conn.commit()
-        print('tabela criada com sucesso')
-        self.desconecta_db()
-
-    # chamando função
-    def cadastrar_usuario(self):
-        self.username_cadastro = self.username_cadastro_entry.get()
-        self.email_cadastro = self.email_cadastro_entry.get()
-        self.senha_cadastro = self.senha_cadastro_entry.get()
-        self.conifirma_senhaa_cadastro = self.confirma_senha_entry.get()
-
-        self.conecta_db()
-
-        self.cursor.execute(
-            """
-            INSERT INTO usuarios (Usermane, Email, Password, ConfiPassoword)
-            VALUES (?, ?, ?, ?)""",
-            (
-                self.username_cadastro,
-                self.email_cadastro,
-                self.senha_cadastro,
-                self.conifirma_senhaa_cadastro,
-            ),
-        )
-
-        self.conn.commit()
-
-        try:
-            if (
-                self.username_cadastro == ''
-                or self.email_cadastro == ''
-                or self.senha_cadastro == ''
-                or self.conifirma_senhaa_cadastro == ''
-            ):
-                messagebox.showerror(
-                    title='Mlcoder System',
-                    message='ERRO\nPreencha os Campos vazios!',
-                )
-            elif len(self.username_cadastro) < 4:
-                messagebox.showwarning(
-                    title='Mlcoder System',
-                    message='O nome de Usuário deve\nter pelo menos 4 caracteres!',
-                )
-            elif len(self.senha_cadastro < 4):
-                messagebox.showwarning(
-                    title='Mlcoder System',
-                    message='A Senha deve\nter pelo menos 4 caracteres!',
-                )
-            elif self.senha_cadastro != self.conifirma_senhaa_cadastro:
-                messagebox.showerror(title='Mlcoder System', message='ERRO!!!')
-            else:
-                self.conn.commit()
-                messagebox.showinfo(
-                    title='Mlcoder System',
-                    message=f'Parabéns {self.username_cadastro}\nOs seus dados foram cadastrados',
-                )
-                self.desconecta_db()
-
-                self.limpa_entry_cadastro()
-
-        except:
-            messagebox.showerror(
-                title='Mlcoder Systema',
-                message='Erro! no processamento do seu cadastro\ntente novamente!',
-            )
-            self.desconecta_db()
-
-    def verifica_login(self):
-        self.username_login = self.username_login_entry.get()
-        self.senha_login = self.senha_login_entry.get()
-        self.conecta_db()
-        # self.conecta_db()
-        # verificação se o usuário existe
-        self.cursor.execute(
-            """SELECT * FROM usuarios WHERE (Usermane = ? AND Password = ? )""",
-            (self.username_login, self.senha_login),
-        )
-
-        self.verifica_dados = (
-            self.cursor.fetchone()
-        )   # pecorrendo na tebela usuário
-
-        try:
-            if (
-                self.username_login in self.verifica_dados
-                and self.senha_login in self.verifica_dados
-            ):
-                messagebox.showinfo(
-                    title='Mlcoder System',
-                    message=f'Parabéns {self.username_login}\nLogin feito com sucesso',
-                )
-                self.desconecta_db()
-                # se for para tela após não limpar apenas destruir a tela de login
-                self.limpa_entry_login()
-
-        except:
-            messagebox.showerror(
-                title='Mlcoder Syatema',
-                message='Erro!!!\nDados não localizado',
-            )
-            self.desconecta_db()
-
-
-# principal
-
-
-class App(ctk.CTk, BackEnd):
+class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.conf_inicial()
         self.tela_de_login()
-        self.tema()
-        self.cria_tabela()
-        # self.verifica_login()
-        # self.limpa_entry_cadastro()
-        # self.limpa_entry_login()
-        # self.tela_de_cadastro()
+        self.ml_db = MLDB()
+        self.protocol('WM_DELETE_WINDOW', self.fechar_mlsytem)
 
     # Configurando a janela principal
     def conf_inicial(self):
         self.geometry('700x400')
         self.title('Mlcoder System')
         self.resizable(False, False)
-
-    def tema(self):
         ctk.set_appearance_mode('dark')
         ctk.set_default_color_theme('dark-blue')
+
+    def verifica_login(self):
+        username_login = self.username_login_entry.get()
+        senha_login = self.senha_login_entry.get()
+        existe = self.ml_db.consultar_existencia_usuario(
+            username_login, senha_login
+        )
+        if existe:
+            messagebox.showinfo(
+                title='Mlcoder System',
+                message=f'Parabéns {username_login}\nLogin feito com sucesso',
+            )
+            # se for para tela após não limpar apenas destruir a tela de login
+            self.limpa_entry_login()
+        else:
+            messagebox.showerror(
+                title='Mlcoder Syatema',
+                message='Erro!!!\nDados não localizado',
+            )
+
+    def cadastrar_usuario(self):
+        username_cadastro = self.username_cadastro_entry.get()
+        email_cadastro = self.email_cadastro_entry.get()
+        senha_cadastro = self.senha_cadastro_entry.get()
+        conifirma_senhaa_cadastro = self.confirma_senha_entry.get()
+        erro = self.ml_db.cadastrar_usuario(
+            username_cadastro,
+            email_cadastro,
+            senha_cadastro,
+            conifirma_senhaa_cadastro,
+        )
+        if erro is None:
+            messagebox.showinfo(
+                title='Mlcoder System',
+                message=f'Parabéns {username_cadastro}\nOs seus dados foram cadastrados',
+            )
+        else:
+            messagebox.showwarning(title='Mlcoder System', message=erro)
 
     def tela_de_login(self):
 
         # trabalhando com a imagem
         self.img = PhotoImage(file='jg.png')
-        self.lb_img = ctk.CTkLabel(self, text=None, image=self.img)
+        self.lb_img = Label(image=self.img, bg='#000000', fg='#FFFFFF')
         self.lb_img.grid(row=1, column=0, padx=10)
         self.iconbitmap('officedatabase_103574.ico')
 
@@ -337,6 +237,10 @@ class App(ctk.CTk, BackEnd):
             command=self.tela_de_login,
         )
         self.btn_login_back.grid(row=7, column=0, pady=5, padx=10)
+
+    def fechar_mlsytem(self):
+        self.ml_db.fechar_con()
+        self.destroy()
 
     # backend
     def limpa_entry_cadastro(self):
